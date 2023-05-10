@@ -1,14 +1,23 @@
 const dns2 = require('dns2');
 require('dotenv').config();
 
-const { Packet, UDPClient } = dns2;
+const { Packet } = dns2;
 
 async function resolvedns(name) {
-  const resolve = UDPClient({
+  const option = {
     dns : '1.1.1.1',
     port: 53
-  });
-  return await resolve(name);
+  };
+
+  const dns = new dns2(option);
+
+  const a = await dns.resolveA(name);
+  const cname = await dns.resolveCNAME(name);
+
+  const dns_list = [];
+  dns_list.push(a);
+  dns_list.push(cname);
+  return dns_list
 }
 
 const server = dns2.createServer({
@@ -17,14 +26,18 @@ const server = dns2.createServer({
     const [ question ] = request.questions;
     const { name } = question;
     const response = Packet.createResponseFromRequest(request);
-    resolvedns(name).then( temp => {
-      response.answers.push({
-        name: temp.answers[0].name,
-        type: temp.answers[0].type,
-        class: temp.answers[0].class,
-        ttl: temp.answers[0].ttl,
-        address: temp.answers[0].address
-      });
+    resolvedns(name).then( dns => {
+      console.log(dns);
+      let dnsa = dns[0].answers;
+      for (let i = 0; i < dnsa.length; i++) {
+        response.answers.push({
+          name: dnsa[i].name,
+          type: dnsa[i].type,
+          class: dnsa[i].class,
+          ttl: dnsa[i].ttl,
+          address: dnsa[i].address
+        });
+      }
       send(response);
     });
   }
